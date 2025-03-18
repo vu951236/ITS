@@ -1,40 +1,45 @@
 import numpy as np
 import os
 import cv2
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from keras.utils import to_categorical
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPool2D, Dense, Flatten, Dropout, BatchNormalization
+from keras.optimizers import Adam
+from keras.callbacks import ReduceLROnPlateau, EarlyStopping, CSVLogger, ModelCheckpoint
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 # Khởi tạo biến
-data = []
-labels = []
-classes = 43
+data, labels = [], []
+num_classes = 43  # Số lượng lớp
+img_size = (30, 30)  # Kích thước ảnh
 cur_path = os.getcwd()
 
 # Đọc dữ liệu ảnh
-for i in range(classes):
+for i in range(num_classes):
     path = os.path.join(cur_path, 'train', str(i))
+    if not os.path.exists(path):
+        print(f"Warning: Folder {path} does not exist!")
+        continue
     images = os.listdir(path)
-    for a in images:
+
+    for img_name in images:
+        img_path = os.path.join(path, img_name)
         try:
-            image = cv2.imread(os.path.join(path, a))
-            image = cv2.resize(image, (30, 30))
+            image = cv2.imread(img_path)
+            if image is None:
+                raise ValueError(f"Không thể đọc ảnh: {img_name}")
+
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Chuyển sang RGB
+            image = cv2.resize(image, img_size)  # Resize ảnh
             data.append(image)
             labels.append(i)
-        except:
-            print(f"Error loading image: {a}")
+        except Exception as e:
+            print(f"Lỗi khi xử lý ảnh {img_name}: {e}")
 
 # Chuyển đổi thành numpy arrays và chuẩn hóa dữ liệu
-data = np.array(data) / 255.0  # Chuẩn hóa pixel về khoảng [0,1]
-labels = np.array(labels)
+data = np.array(data, dtype=np.float32) / 255.0  # Chuẩn hóa pixel về khoảng [0,1]
+labels = np.array(labels, dtype=np.int32)
 
-print(data.shape, labels.shape)
-
-# Chia tập dữ liệu
-X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=43)
-
-# One-hot encoding labels
-y_train = to_categorical(y_train, classes)
-y_test = to_categorical(y_test, classes)
-
-# Lưu dữ liệu để sử dụng sau này
-np.savez_compressed("dataset.npz", X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
+print(f"Dataset shape: {data.shape}, Labels shape: {labels.shape}")
