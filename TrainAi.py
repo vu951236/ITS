@@ -43,3 +43,70 @@ data = np.array(data, dtype=np.float32) / 255.0  # Chuẩn hóa pixel về kho�
 labels = np.array(labels, dtype=np.int32)
 
 print(f"Dataset shape: {data.shape}, Labels shape: {labels.shape}")
+
+# Chia tập dữ liệu
+X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=43, stratify=labels)
+
+# One-hot encoding labels
+y_train = to_categorical(y_train, num_classes)
+y_test = to_categorical(y_test, num_classes)
+
+# Tăng cường dữ liệu để cải thiện tổng quát hóa
+data_augmentation = ImageDataGenerator(
+    rotation_range=10,
+    zoom_range=0.1,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=False,
+    fill_mode='nearest'
+)
+
+# Xây dựng mô hình CNN
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=X_train.shape[1:], padding='same'),
+    BatchNormalization(),
+    Conv2D(32, (3, 3), activation='relu', padding='same'),
+    MaxPool2D((2, 2)),
+    Dropout(0.25),
+
+    Conv2D(64, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    Conv2D(64, (3, 3), activation='relu', padding='same'),
+    MaxPool2D((2, 2)),
+    Dropout(0.25),
+
+    Conv2D(128, (3, 3), activation='relu', padding='same'),
+    BatchNormalization(),
+    Conv2D(128, (3, 3), activation='relu', padding='same'),
+    MaxPool2D((2, 2)),
+    Dropout(0.5),
+
+    Flatten(),
+    Dense(256, activation='relu'),
+    BatchNormalization(),
+    Dropout(0.5),
+    Dense(num_classes, activation='softmax')
+])
+
+# Compile mô hình
+model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
+
+# Callbacks
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1)
+csv_logger = CSVLogger("training_log.csv")
+checkpoint = ModelCheckpoint("best_model.h5", monitor='val_accuracy', save_best_only=True, mode='max', verbose=1)
+
+# Huấn luyện mô hình
+epochs = 25
+batch_size = 32
+
+history = model.fit(
+    data_augmentation.flow(X_train, y_train, batch_size=batch_size),
+    epochs=epochs,
+    validation_data=(X_test, y_test),
+    callbacks=[early_stopping, reduce_lr, csv_logger, checkpoint]
+)
+
+# Lưu mô hình cuối cùng
+model.save("final_model.h5")
