@@ -1,0 +1,51 @@
+from keras.models import load_model
+
+# Tải mô hình nhận diện biển báo
+model = load_model('final_model.h5')
+
+# Danh sách các loại biển báo
+classes = {
+    1: 'Giới hạn tốc độ 20km/h',
+    2: 'Giới hạn tốc độ 30km/h',
+    3: 'Giới hạn tốc độ 50km/h',
+    4: 'Giới hạn tốc độ 60km/h',
+    5: 'Giới hạn tốc độ 70km/h',
+    6: 'Giới hạn tốc độ 80km/h',
+    7: 'Hết giới hạn tốc độ 80km/h',
+    8: 'Giới hạn tốc độ 100km/h',
+    9: 'Giới hạn tốc độ 120km/h',
+    10: 'Cấm vượt',
+    11: 'Cấm vượt xe trên 3.5 tấn',
+    12: 'Được ưu tiên tại ngã tư',
+    13: 'Đường ưu tiên',
+    14: 'Nhường đường',
+    15: 'Dừng lại',
+    16: 'Cấm phương tiện',
+    17: 'Cấm xe trên 3.5 tấn',
+    18: 'Cấm vào',
+    19: 'Chú ý nguy hiểm',
+    20: 'Đường cong nguy hiểm bên trái',
+    21: 'Đường cong nguy hiểm bên phải',
+    22: 'Đường cong đôi',
+    23: 'Đường xóc',
+    24: 'Đường trơn trượt',
+    25: 'Đường hẹp bên phải',
+    26: 'Công trình đang thi công',
+    27: 'Tín hiệu giao thông',
+    28: 'Khu vực có người đi bộ',
+    29: 'Khu vực có trẻ em qua đường',
+    30: 'Khu vực có xe đạp băng qua',
+    31: 'Cảnh báo băng tuyết',
+    32: 'Cảnh báo động vật hoang dã',
+    33: 'Hết giới hạn tốc độ và cấm vượt',
+    34: 'Rẽ phải phía trước',
+    35: 'Rẽ trái phía trước',
+    36: 'Chỉ được đi thẳng',
+    37: 'Đi thẳng hoặc rẽ phải',
+    38: 'Đi thẳng hoặc rẽ trái',
+    39: 'Đi bên phải',
+    40: 'Đi bên trái',
+    41: 'Vòng xuyến bắt buộc',
+    42: 'Hết lệnh cấm vượt',
+    43: 'Hết lệnh cấm vượt xe trên 3.5 tấn'
+}
