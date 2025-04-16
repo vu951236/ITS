@@ -68,6 +68,9 @@ class TrafficSignGUI:
         self.root.geometry("1400x800")
         self.root.configure(bg='#2C3E50')
 
+        # Lấy thông tin process hiện tại
+        self.process = psutil.Process()
+
         # Tải mô hình Keras
         try:
             print("Đang tải mô hình Keras...")
@@ -142,6 +145,36 @@ class TrafficSignGUI:
                                     font=("Arial", 12), bg='#34495E', fg='#F1C40F')
         self.status_label.pack(pady=10)
 
+        # Frame hiển thị thông số hiệu suất
+        performance_frame = tk.Frame(result_frame, bg='#34495E')
+        performance_frame.pack(pady=10, fill='x', padx=20)
+
+        tk.Label(performance_frame,
+                 text="THÔNG SỐ HIỆU SUẤT",
+                 font=("Arial", 14, "bold"),
+                 bg='#34495E', fg='#ECF0F1').pack(anchor='w', pady=(10, 5))
+
+        self.fps_label = tk.Label(performance_frame,
+                                 text="FPS: 0.0",
+                                 font=("Arial", 12),
+                                 bg='#34495E', fg='#2ECC71',
+                                 justify=tk.LEFT)
+        self.fps_label.pack(anchor='w')
+
+        self.cpu_label = tk.Label(performance_frame,
+                                 text="CPU: 0.0%",
+                                 font=("Arial", 12),
+                                 bg='#34495E', fg='#2ECC71',
+                                 justify=tk.LEFT)
+        self.cpu_label.pack(anchor='w')
+
+        self.ram_label = tk.Label(performance_frame,
+                                 text="RAM: 0.0 MB",
+                                 font=("Arial", 12),
+                                 bg='#34495E', fg='#2ECC71',
+                                 justify=tk.LEFT)
+        self.ram_label.pack(anchor='w')
+
         # Lịch sử kết quả
         self.history = []
         self.history_label = tk.Label(result_frame,
@@ -167,8 +200,13 @@ Hướng dẫn sử dụng:
         self.after_id = None
         self.frame_buffer = None
         self.last_prediction_time = 0
-        self.prediction_interval = 1000
+        self.prediction_interval = 1500 # 1.5 giây/1 dự đoán
         self.confidence_threshold = 0.8
+
+        # Biến cho tính FPS
+        self.frame_count = 0
+        self.last_fps_time = time.time()
+        self.fps = 0.0
 
         # Template matching
         self.templates_dir = "templates"
@@ -194,10 +232,16 @@ Hướng dẫn sử dụng:
 
     def preprocess_image(self, image):
         try:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            gray = cv2.equalizeHist(gray)
-            image = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
+            # Resize ngay từ đầu để giảm tải
             image = cv2.resize(image, (30, 30))
+            # Chuyển đổi màu 1 lần 
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # gray = cv2.equalizeHist(gray)
+            # image = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)  # Fixed syntax error
+            # image = cv2.resize(image, (30, 30))
+
+            # Chuẩn hóa
             image = image.astype('float32') / 255.0
             image = np.expand_dims(image, axis=0)
             return image
@@ -257,7 +301,10 @@ Hướng dẫn sử dụng:
             if self.refresh_camera():
                 self.is_running = True
                 self.start_stop_button.config(text="DỪNG CAMERA", bg='#f44336')
+                self.last_fps_time = time.time()
+                self.frame_count = 0
                 self.update_camera()
+                self.update_performance_metrics()
         else:
             self.stop_camera()
 
@@ -274,6 +321,9 @@ Hướng dẫn sử dụng:
         self.camera_label.config(image='')
         self.result_label.config(text="Chưa phát hiện biển báo")
         self.status_label.config(text="")
+        self.fps_label.config(text="FPS: 0.0")
+        self.cpu_label.config(text="CPU: 0.0%")
+        self.ram_label.config(text="RAM: 0.0 MB")
         self.history = []
         self.history_label.config(text="Lịch sử:\n")
 
@@ -288,7 +338,38 @@ Hướng dẫn sử dụng:
                 self.camera_label.config(image=photo)
                 self.camera_label.image = photo
                 threading.Thread(target=self.process_prediction, args=(frame,), daemon=True).start()
-            self.after_id = self.root.after(33, self.update_camera)
+                
+                # Cập nhật FPS
+                self.frame_count += 1
+                current_time = time.time()
+                if current_time - self.last_fps_time >= 1.0:
+                    self.fps = self.frame_count / (current_time - self.last_fps_time)
+                    self.frame_count = 0
+                    self.last_fps_time = current_time
+                    self.fps_label.config(text=f"FPS: {self.fps:.1f}")
+            
+            self.after_id = self.root.after(33, self.update_camera) # tần suất cập nhật giao diện
+
+    def update_performance_metrics(self):
+        if self.is_running:
+            try:
+                # Lấy CPU usage của tiến trình hiện tại (không chia cho số lõi)
+                cpu_usage = self.process.cpu_percent(interval=None)
+                
+                # Lấy RAM usage
+                memory_info = self.process.memory_info()
+                ram_usage_mb = memory_info.rss / (1024 * 1024)  # Chuyển sang MB
+                
+                # Cập nhật giao diện
+                self.cpu_label.config(text=f"CPU: {cpu_usage:.1f}%")
+                self.ram_label.config(text=f"RAM: {ram_usage_mb:.1f} MB")
+            except Exception as e:
+                print(f"Lỗi khi lấy thông số hiệu suất: {str(e)}")
+                self.cpu_label.config(text="CPU: N/A")
+                self.ram_label.config(text="RAM: N/A")
+        
+        # Lên lịch cập nhật tiếp theo
+        self.root.after(1000, self.update_performance_metrics)
 
     def process_prediction(self, frame):
         current_time = time.time() * 1000
@@ -312,7 +393,13 @@ Hướng dẫn sử dụng:
                 print(f"Lỗi khi dự đoán: {str(e)}")
                 self.root.after(0, lambda: self.result_label.config(text="Lỗi khi dự đoán", fg='#E74C3C'))
             self.root.after(0, lambda: self.status_label.config(text=""))
-            print(f"CPU: {psutil.cpu_percent()}% | RAM: {psutil.virtual_memory().percent}%")
+            try:
+                cpu_usage = self.process.cpu_percent(interval=0.1)
+                memory_info = self.process.memory_info()
+                ram_usage_mb = memory_info.rss / (1024 * 1024)
+                # print(f"FPS: {self.fps:.1f} | CPU: {cpu_usage:.1f}% | RAM: {ram_usage_mb:.1f} MB")
+            except Exception as e:
+                print(f"Lỗi khi ghi log hiệu suất: {str(e)}")
 
     def __del__(self):
         self.stop_camera()
