@@ -9,6 +9,9 @@ import time
 import threading
 import sys
 import psutil
+from gtts import gTTS
+import playsound
+import tempfile
 sys.stdout.reconfigure(encoding='utf-8')
 
 # Tắt cảnh báo oneDNN
@@ -192,6 +195,18 @@ Hướng dẫn sử dụng:
         except Exception as e:
             print(f"Lỗi khi tải templates: {str(e)}")
 
+    def speak_vietnamese(self, text):
+        try:
+            tts = gTTS(text=text, lang='vi')
+            filename = "temp_audio.mp3"
+            tts.save(filename)
+            playsound.playsound(filename)
+            os.remove(filename)
+        except Exception as e:
+            print(f"Lỗi khi phát âm thanh tiếng Việt: {e}")
+
+
+
     def preprocess_image(self, image):
         try:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -305,6 +320,7 @@ Hướng dẫn sử dụng:
                     history_text = "Lịch sử:\n" + "\n".join(self.history)
                     self.root.after(0, lambda: self.result_label.config(text=result_text, fg='#2ECC71'))
                     self.root.after(0, lambda: self.history_label.config(text=history_text))
+                    self.speak_vietnamese(sign_name)
                 else:
                     self.root.after(0, lambda: self.result_label.config(text="Chưa phát hiện biển báo", fg='#ECF0F1'))
                 self.last_prediction_time = current_time
