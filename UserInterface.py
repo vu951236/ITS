@@ -9,6 +9,10 @@ import time
 import threading
 import sys
 import psutil
+from gtts import gTTS
+import playsound
+import tempfile
+
 sys.stdout.reconfigure(encoding='utf-8')
 
 # Tắt cảnh báo oneDNN
@@ -212,6 +216,16 @@ Hướng dẫn sử dụng:
         self.templates_dir = "templates"
         self.templates = {}
         self.load_templates()
+    
+    def speak_vietnamese(self, text):
+         try:
+             tts = gTTS(text=text, lang='vi')
+             filename = "temp_audio.mp3"
+             tts.save(filename)
+             playsound.playsound(filename)
+             os.remove(filename)
+         except Exception as e:
+             print(f"Lỗi khi phát âm thanh tiếng Việt: {e}")
 
     def load_templates(self):
         try:
@@ -304,7 +318,10 @@ Hướng dẫn sử dụng:
                 self.last_fps_time = time.time()
                 self.frame_count = 0
                 self.update_camera()
-                self.update_performance_metrics()
+
+                self.process = psutil.Process()  # Lấy đối tượng tiến trình
+
+                self.root.after(1000, self.update_performance_metrics)
         else:
             self.stop_camera()
 
@@ -353,13 +370,13 @@ Hướng dẫn sử dụng:
     def update_performance_metrics(self):
         if self.is_running:
             try:
-                # Lấy CPU usage của tiến trình hiện tại (không chia cho số lõi)
-                cpu_usage = self.process.cpu_percent(interval=None)
-                
-                # Lấy RAM usage
+                # Lấy CPU của chương trình
+                cpu_usage = self.process.cpu_percent(interval=None) / psutil.cpu_count()
+
+                # Lấy RAM của tiến trình (bộ nhớ đang sử dụng)
                 memory_info = self.process.memory_info()
-                ram_usage_mb = memory_info.rss / (1024 * 1024)  # Chuyển sang MB
-                
+                ram_usage_mb = memory_info.rss / (1024 * 1024)  # Chuyển từ bytes sang MB
+
                 # Cập nhật giao diện
                 self.cpu_label.config(text=f"CPU: {cpu_usage:.1f}%")
                 self.ram_label.config(text=f"RAM: {ram_usage_mb:.1f} MB")
@@ -386,6 +403,7 @@ Hướng dẫn sử dụng:
                     history_text = "Lịch sử:\n" + "\n".join(self.history)
                     self.root.after(0, lambda: self.result_label.config(text=result_text, fg='#2ECC71'))
                     self.root.after(0, lambda: self.history_label.config(text=history_text))
+                    self.speak_vietnamese(sign_name)
                 else:
                     self.root.after(0, lambda: self.result_label.config(text="Chưa phát hiện biển báo", fg='#ECF0F1'))
                 self.last_prediction_time = current_time
