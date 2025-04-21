@@ -10,7 +10,7 @@ import threading
 import sys
 import psutil
 from gtts import gTTS
-import playsound
+import pygame
 import tempfile
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -215,16 +215,6 @@ Hướng dẫn sử dụng:
         self.templates_dir = "templates"
         self.templates = {}
         self.load_templates()
-    
-    def speak_vietnamese(self, text):
-         try:
-             tts = gTTS(text=text, lang='vi')
-             filename = "temp_audio.mp3"
-             tts.save(filename)
-             playsound.playsound(filename)
-             os.remove(filename)
-         except Exception as e:
-             print(f"Lỗi khi phát âm thanh tiếng Việt: {e}")
 
     def load_templates(self):
         try:
@@ -246,14 +236,21 @@ Hướng dẫn sử dụng:
     def speak_vietnamese(self, text):
         try:
             tts = gTTS(text=text, lang='vi')
-            filename = "temp_audio.mp3"
-            tts.save(filename)
-            playsound.playsound(filename)
-            os.remove(filename)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tf:
+                temp_filename = tf.name
+            tts.save(temp_filename)
+
+            pygame.mixer.init()
+            pygame.mixer.music.load(temp_filename)
+            pygame.mixer.music.play()
+
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+
+            pygame.mixer.music.unload()
+            os.remove(temp_filename)
         except Exception as e:
             print(f"Lỗi khi phát âm thanh tiếng Việt: {e}")
-
-
 
     def preprocess_image(self, image):
         try:
@@ -414,7 +411,7 @@ Hướng dẫn sử dụng:
                     history_text = "Lịch sử:\n" + "\n".join(self.history)
                     self.root.after(0, lambda: self.result_label.config(text=result_text, fg='#2ECC71'))
                     self.root.after(0, lambda: self.history_label.config(text=history_text))
-                    self.speak_vietnamese(sign_name)
+                    threading.Thread(target=self.speak_vietnamese, args=(sign_name,), daemon=True).start()
                 else:
                     self.root.after(0, lambda: self.result_label.config(text="Chưa phát hiện biển báo", fg='#ECF0F1'))
                 self.last_prediction_time = current_time
